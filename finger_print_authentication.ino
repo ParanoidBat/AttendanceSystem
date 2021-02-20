@@ -120,12 +120,14 @@ bool receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
   uint8_t rx_packet_length[2]; // received packet length
   uint16_t rx_packet_length_2b; // single data type for holding received packet length
   uint16_t data_length; // length of data extracted from packet length
-  uint8_t conformation_code;
+  uint8_t confirmation_code;
+  uint8_t checksum_bytes[2]; // checksum in bytes
+  uint16_t checksum; // whole checksum representation
 
   //the following loop checks each segment of the data packet for errors
   while(1){
     switch(token){
-      // case 0 & 1 check for start codes
+      // case 0 & 1 check for start code
       case 0:
         // high byte
         if(serial_buffer[token] == ((HEADER >> 8) & 0xFF)) break;
@@ -177,7 +179,7 @@ bool receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
       // case 8 won't be hit as after case 7, token value is 9
       // read conformation code
       case 9:
-        conformation_code = serial_buffer[token];
+        confirmation_code = serial_buffer[token];
         break;
 
       // read data
@@ -189,6 +191,48 @@ bool receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
 
       // read checksum
       case 11:
+        // if there ain't no data
+        if(data_length == 0){
+          checksum_bytes[0] = serial_buffer[token]; // low byte
+          checksum_bytes[1] = serial_buffer[token - 1]; // high byte
+          checksum = uint16_t(checksum_bytes[1] << 8) + checksum_bytes[0];
+
+          uint16_t tmp = 0;
+
+          tmp = packet_type + rx_packet_length[0] + rx_packet_length[1] + confirmation_code;
+
+          // if calculated checksum is equal to received checksum. is good to go
+          if(tmp == checksum) return true;
+          else return false;
+
+          break;
+        }
+
+        // if data is present
+        else if((serial_buffer[token + (data_length -1)] > 0) || ((serial_buffer[token + 1 + (data_length -1)] > 0))){
+          checksum_bytes[0] = serial_buffer[token + 1 + (data_length -1 )]; // low byte
+          checksum_bytes[0] = serial_buffer[token + (data_length -1 )]; // high byte
+          checksum = uint16_t (checksum_bytes[1] << 8) + checksum_bytes[0];
+
+          uint16_t tmp = 0;
+
+          tmp = packet_type + rx_packet_length[0] + rx_packet_length[1] + confirmation_code;
+
+          for(int i=0; i < data_length; i++) {
+            tmp += data_buffer[i]; //calculate data checksum
+          }
+
+          if(tmp == checksum) return true;
+          return false;
+
+          break;
+        }
+
+        // if checksum is 0
+        else return false;
+
+      default:
+        break;
     }
 
     token ++;
