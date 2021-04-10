@@ -14,6 +14,7 @@
 
 // Module command codes
 #define CMD_VERIFY_PASSWORD 0x13
+#define CMD_COLLECT_FINGER_IMAGE 0x01
 
 // length of buffer used to read serial data
 #define FPS_DEFAULT_SERIAL_BUFFER_LENGTH 300
@@ -43,7 +44,7 @@ bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
     data_length = 0;
     Serial.println("No data to send\n");
 
-    return false;
+//    return false;
   }
   
   uint16_t packet_length = data_length + 3; // 1 byte command, 2 bytes checksum
@@ -63,52 +64,52 @@ bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
   check_sum_in_bytes[0] = check_sum & 0xFF; // get low byte
   check_sum_in_bytes[1] = (check_sum >> 8) & 0xFF; // get high byte
 
-//  Serial.println("writing");
+  Serial.println("writing");
   // write to serial (tx). high bytes will be transferred first
   // header
   commSerial->write(header_bytes[1]);
   commSerial->write(header_bytes[0]);
   
-//  Serial.print(header_bytes[1], HEX);
-//  Serial.println(header_bytes[0], HEX);
+  Serial.print(header_bytes[1], HEX);
+  Serial.println(header_bytes[0], HEX);
   // address
   commSerial->write(address_bytes[3]);
   commSerial->write(address_bytes[2]);
   commSerial->write(address_bytes[1]);
   commSerial->write(address_bytes[0]);
   
-//  Serial.print(address_bytes[3], HEX);
-//  Serial.print(address_bytes[2], HEX);
-//  Serial.print(address_bytes[1], HEX);
-//  Serial.println(address_bytes[0], HEX);
+  Serial.print(address_bytes[3], HEX);
+  Serial.print(address_bytes[2], HEX);
+  Serial.print(address_bytes[1], HEX);
+  Serial.println(address_bytes[0], HEX);
   // packet id
   commSerial->write(pid);
   
-//  Serial.println(pid, HEX);
+  Serial.println(pid, HEX);
   // packet length
   commSerial->write(packet_length_in_bytes[1]);
   commSerial->write(packet_length_in_bytes[0]);
   
-//  Serial.print(packet_length_in_bytes[1], HEX);
-//  Serial.println(packet_length_in_bytes[0], HEX);
+  Serial.print(packet_length_in_bytes[1], HEX);
+  Serial.println(packet_length_in_bytes[0], HEX);
   // command
   commSerial->write(cmd);
   
-//  Serial.println(cmd, HEX);
+  Serial.println(cmd, HEX);
   // data
   for(int i = (data_length - 1); i >= 0; i--){
     commSerial->write(data[i]);
-//    Serial.print(data[i], HEX);
+    Serial.print(data[i], HEX);
   }
-//  Serial.println();
+  Serial.println();
   // checksum
   commSerial->write(check_sum_in_bytes[1]);
   commSerial->write(check_sum_in_bytes[0]);
   
-//  Serial.print(check_sum_in_bytes[1], HEX);
-//  Serial.println(check_sum_in_bytes[0], HEX);
-//  
-//  Serial.println("written");
+  Serial.print(check_sum_in_bytes[1], HEX);
+  Serial.println(check_sum_in_bytes[0], HEX);
+  
+  Serial.println("written");
 
   return true;
 }
@@ -125,7 +126,7 @@ bool receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
   while(timeout > 0){
     if(commSerial->available()){
       byte_buffer = commSerial->read();
-//      Serial.println(byte_buffer, HEX);
+      Serial.println(byte_buffer, HEX);
 
       serial_buffer[serial_buffer_length] = byte_buffer;
       serial_buffer_length++;
@@ -231,6 +232,8 @@ bool receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
       // read conformation code
       case 9:
         confirmation_code = serial_buffer[token];
+        Serial.print("conformation code: ");
+        Serial.println(confirmation_code, HEX);
         break;
 
       // read data
@@ -254,7 +257,7 @@ bool receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
 
           // if calculated checksum is equal to received checksum. is good to go
           if(tmp == checksum){
-//          Serial.println("pass");
+          Serial.println("pass");
             return true;
           }
 //          Serial.println("fail");
@@ -320,16 +323,27 @@ bool verifyPassword(uint32_t password = M_PASSWORD){
   return false;
 }
 
+bool enrollFinger(){
+  bool tx_response = sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
+   if(tx_response) Serial.println("Yes");
+   else Serial.println("No");
+
+  bool rx_response = receivePacket();
+    if(rx_response) Serial.println("Yes");
+    else Serial.println("No");
+}
+
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   sensorSerial.begin(57600);
 
-  bool response = verifyPassword();
-
-  if (response) Serial.println("Password Verified");
-  else Serial.println("Password Unverified");
+  enrollFinger();
+//  bool response = verifyPassword();
+//
+//  if (response) Serial.println("Password Verified");
+//  else Serial.println("Password Unverified");
 }
 
 void loop() {
