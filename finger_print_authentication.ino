@@ -28,8 +28,11 @@
 SoftwareSerial sensorSerial(2, 3); // rx, tx -> yellow, white
 Stream *commSerial = &sensorSerial;
 
+uint16_t rx_data = 0xFFFF;
+
 // function to send packet to finger scanner
 bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
+  bool print_data = false;
   
   // seperate header and address into bytes
   uint8_t header_bytes[2];
@@ -64,60 +67,77 @@ bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
   check_sum_in_bytes[0] = check_sum & 0xFF; // get low byte
   check_sum_in_bytes[1] = (check_sum >> 8) & 0xFF; // get high byte
 
-//  Serial.println("writing");
-
+  if(print_data){
+    Serial.println("writing");
+  }
+  
   // write to serial. high bytes will be transferred first
   // header
   commSerial->write(header_bytes[1]);
   commSerial->write(header_bytes[0]);
-  
-//  Serial.print(header_bytes[1], HEX);
-//  Serial.println(header_bytes[0], HEX);
 
+  if(print_data){
+    Serial.print(header_bytes[1], HEX);
+    Serial.println(header_bytes[0], HEX);
+  }
+  
   // address
   commSerial->write(address_bytes[3]);
   commSerial->write(address_bytes[2]);
   commSerial->write(address_bytes[1]);
   commSerial->write(address_bytes[0]);
-  
-//  Serial.print(address_bytes[3], HEX);
-//  Serial.print(address_bytes[2], HEX);
-//  Serial.print(address_bytes[1], HEX);
-//  Serial.println(address_bytes[0], HEX);
 
+  if(print_data){
+    Serial.print(address_bytes[3], HEX);
+    Serial.print(address_bytes[2], HEX);
+    Serial.print(address_bytes[1], HEX);
+    Serial.println(address_bytes[0], HEX);
+  }
+  
   // packet id
   commSerial->write(pid);
-  
-//  Serial.println(pid, HEX);
+
+  if(print_data){
+    Serial.println(pid, HEX);
+  }
   
   // packet length
   commSerial->write(packet_length_in_bytes[1]);
   commSerial->write(packet_length_in_bytes[0]);
-  
-//  Serial.print(packet_length_in_bytes[1], HEX);
-//  Serial.println(packet_length_in_bytes[0], HEX);
+
+  if(print_data){
+    Serial.print(packet_length_in_bytes[1], HEX);
+    Serial.println(packet_length_in_bytes[0], HEX);
+  }
   
   // command
   commSerial->write(cmd);
-  
-//  Serial.println(cmd, HEX);
+
+  if(print_data){
+    Serial.println(cmd, HEX);
+  }
   
   // data
   for(int i = (data_length - 1); i >= 0; i--){
     commSerial->write(data[i]);
-//    Serial.print(data[i], HEX);
+    if(print_data){
+      Serial.print(data[i], HEX);
+    }
   }
-//  Serial.println();
+  if(print_data){
+    Serial.println();
+  }
   
   // checksum
   commSerial->write(check_sum_in_bytes[1]);
   commSerial->write(check_sum_in_bytes[0]);
-  
-//  Serial.print(check_sum_in_bytes[1], HEX);
-//  Serial.println(check_sum_in_bytes[0], HEX);
-//  
-//  Serial.println("written");
 
+  if(print_data){
+    Serial.print(check_sum_in_bytes[1], HEX);
+    Serial.println(check_sum_in_bytes[0], HEX);
+    
+    Serial.println("written");
+  }
   return true;
 }
 
