@@ -135,7 +135,7 @@ uint8_t receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
   while(timeout > 0){
     if(commSerial->available()){
       byte_buffer = commSerial->read();
-      Serial.println(byte_buffer, HEX);
+//      Serial.println(byte_buffer, HEX);
 
       serial_buffer[serial_buffer_length] = byte_buffer;
       serial_buffer_length++;
@@ -304,8 +304,8 @@ uint8_t receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
         }
 
       default:
-      Serial.println("default");
-        break;
+        Serial.println("default");
+        return confirmation_code;
     }
 
     token ++;
@@ -331,24 +331,20 @@ bool verifyPassword(uint32_t password = M_PASSWORD){
 }
 
 bool enrollFinger(){
-  bool tx_response = sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
-
-  uint8_t rx_response = receivePacket();
+  uint8_t rx_response = 0x02;
 
   while(rx_response == 0x02){
     Serial.println("Place finger");
     sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
     rx_response = receivePacket();
   }
-//  Serial.println(rx_response, HEX);
+
   Serial.println("Remove finger");
     
-  uint8_t bufferId1[1] = {1};
+  uint8_t bufferId[1] = {1};
 
-  rx_response = 0x02;
-  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId1, 1);
+  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
   rx_response = receivePacket();
-//  Serial.println(rx_response, HEX);
 
   delay(2000);
 
@@ -358,20 +354,17 @@ bool enrollFinger(){
     sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
     rx_response = receivePacket();
   }
-//  Serial.println(rx_response, HEX);
+
   Serial.println("Remove finger");
     
-  uint8_t bufferId2[1] = {2};
+  bufferId[0] = 2;
 
-  rx_response = 0x02;
-  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId2, 1);
+  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
   rx_response = receivePacket();
   
-  rx_response = 0x02;
   sendPacket(PID_COMMAND, CMD_REG_MODEL, NULL, 0 );
   rx_response = receivePacket();
   
-  Serial.println(rx_response, HEX);
   if(!rx_response == 0x00) return false;
 
   uint8_t data[3] = {0};
@@ -398,7 +391,7 @@ void setup() {
   Serial.begin(9600);
   sensorSerial.begin(57600);
   
-    bool response = enrollFinger();
+  bool response = enrollFinger();
   if (response) Serial.println("yes");
   else Serial.println("no");
 }
