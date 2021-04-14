@@ -18,6 +18,7 @@
 #define CMD_GEN_CHAR_FILE 0x02
 #define CMD_REG_MODEL 0x05
 #define CMD_STORE_TEMPLATE 0x06
+#define CMD_SEARCH_LIBRARY 0x04
 
 // length of buffer used to read serial data
 #define FPS_DEFAULT_SERIAL_BUFFER_LENGTH 300
@@ -28,7 +29,7 @@
 SoftwareSerial sensorSerial(2, 3); // rx, tx -> yellow, white
 Stream *commSerial = &sensorSerial;
 
-uint16_t rx_data = 0xFFFF;
+uint16_t rx_data[2] = {0xFFFF};
 
 // function to send packet to finger scanner
 bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
@@ -120,6 +121,7 @@ bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
   // data
   for(int i = (data_length - 1); i >= 0; i--){
     commSerial->write(data[i]);
+    
     if(print_data){
       Serial.print(data[i], HEX);
     }
@@ -296,7 +298,7 @@ uint8_t receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
         // if data is present
         else if((serial_buffer[token + (data_length -1)] > 0) || ((serial_buffer[token + 1 + (data_length -1)] > 0))){
           checksum_bytes[0] = serial_buffer[token + 1 + (data_length -1 )]; // low byte
-          checksum_bytes[0] = serial_buffer[token + (data_length -1 )]; // high byte
+          checksum_bytes[1] = serial_buffer[token + (data_length -1 )]; // high byte {changed here}
           checksum = uint16_t (checksum_bytes[1] << 8) + checksum_bytes[0];
 
           uint16_t tmp = 0;
@@ -306,6 +308,12 @@ uint8_t receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
           for(int i=0; i < data_length; i++) {
             tmp += data_buffer[i]; //calculate data checksum
           }
+
+          Serial.println("printing received data");
+          for(int i=0; i < data_length; i++) {
+            Serial.println( data_buffer[i]);
+          }
+          rx_data[0] = (data_buffer[2] + data_buffer[3]);
 
           if(tmp == checksum) {
 //            Serial.println("pass");
@@ -351,6 +359,8 @@ bool verifyPassword(uint32_t password = M_PASSWORD){
 }
 
 bool enrollFinger(){
+  // place finger twice and generate character/template file each time, combine them and store to a given location
+   
   uint8_t rx_response = 0x02;
 
   while(rx_response == 0x02){
@@ -406,16 +416,55 @@ bool enrollFinger(){
   return false;
 }
 
+bool fingerSearch(){
+  // place finger, generate a character/template file and search in library. It'll return fingerID(location it was stored to) and score
+  
+  uint8_t rx_response = 0x02;
+
+  while(rx_response == 0x02){
+    Serial.println("Place finger");
+    sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
+    rx_response = receivePacket();
+  }
+
+  Serial.println("Remove finger");
+    
+  uint8_t bufferId[1] = {1};
+
+  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
+  rx_response = receivePacket();
+
+  uint8_t data[5] = {0};
+  uint16_t number = 4; // number of templates to search. must be +1 from the last location saved
+  uint16_t start = 0;
+
+  data[0] = number & 0xFF;
+  data[1] = (number >> 8) & 0xFF;
+  data[2] = start & 0xFF;
+  data[3] = (start >> 8) & 0xFF;
+  data[4] = 0x01;
+
+  sendPacket(PID_COMMAND, CMD_SEARCH_LIBRARY, data, 5);
+  rx_response = receivePacket();
+
+  if(rx_response == 0x00){
+    return true;
+  }
+  return false;
+  
+//  Serial.print("data: ");
+//  Serial.println(rx_data[0]);
+}
 
 void setup() {
   Serial.begin(9600);
   sensorSerial.begin(57600);
   
-  bool response = enrollFinger();
-  if (response) Serial.println("yes");
-  else Serial.println("no");
+  bool response = fingerSearch();
+//enrollFinger();
+//  if (response) Serial.println("yes");
+//  else Serial.println("no");
 }
 
 void loop() {
-
 }
