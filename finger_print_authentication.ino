@@ -4,7 +4,7 @@
 #define M_PASSWORD 0x00000000
 #define M_ADDRESS 0xFFFFFFFF
 
-// packet IDs. (High byte transferred first)
+// packet IDs.
 #define HEADER 0xEF01
 #define PID_COMMAND 0x01
 #define PID_DATA 0x02
@@ -29,7 +29,8 @@
 SoftwareSerial sensorSerial(2, 3); // rx, tx -> yellow, white
 Stream *commSerial = &sensorSerial;
 
-uint16_t rx_data[2] = {0xFFFF};
+uint8_t *rx_data = NULL;
+uint16_t rx_data_length = 0;
 
 // function to send packet to finger scanner
 bool sendPacket(uint8_t pid, uint8_t cmd, uint8_t* data, uint16_t data_length){
@@ -304,16 +305,13 @@ uint8_t receivePacket(uint32_t timeout = DEFAULT_TIMEOUT){
           uint16_t tmp = 0;
 
           tmp = packet_type + rx_packet_length[0] + rx_packet_length[1] + confirmation_code;
-
+          rx_data = new uint8_t[data_length];
+          rx_data_length = data_length;
+          
           for(int i=0; i < data_length; i++) {
             tmp += data_buffer[i]; //calculate data checksum
+            rx_data[i] = data_buffer[i]; // get data to be used later
           }
-
-          Serial.println("printing received data");
-          for(int i=0; i < data_length; i++) {
-            Serial.println( data_buffer[i]);
-          }
-          rx_data[0] = (data_buffer[2] + data_buffer[3]);
 
           if(tmp == checksum) {
 //            Serial.println("pass");
@@ -358,23 +356,32 @@ bool verifyPassword(uint32_t password = M_PASSWORD){
   return false;
 }
 
-bool enrollFinger(){
-  // place finger twice and generate character/template file each time, combine them and store to a given location
-   
-  uint8_t rx_response = 0x02;
-
-  while(rx_response == 0x02){
+uint8_t collectFingerImage(uint8_t rx_response){
+    while(rx_response == 0x02){
     Serial.println("Place finger");
     sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
     rx_response = receivePacket();
   }
 
   Serial.println("Remove finger");
+  return rx_response;
+}
+
+uint8_t generateCharacterFile(){
+  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
+  rx_response = receivePacket();  
+}
+
+bool enrollFinger(){
+  // place finger twice and generate character/template file each time, combine them and store to a given location
+   
+  uint8_t rx_response = 0x02;
+
+  rx_response = collectFingerImage(rx_response);
     
   uint8_t bufferId[1] = {1};
 
-  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
-  rx_response = receivePacket();
+  generateCharacterFile();
 
   delay(2000);
 
@@ -408,10 +415,8 @@ bool enrollFinger(){
   rx_response = receivePacket();
 
   if(rx_response == 0x00){
-    Serial.println("Registered");
     return true;
   }
-  Serial.println("Couldn't register");
 
   return false;
 }
@@ -460,11 +465,42 @@ void setup() {
   Serial.begin(9600);
   sensorSerial.begin(57600);
   
-  bool response = fingerSearch();
-//enrollFinger();
-//  if (response) Serial.println("yes");
-//  else Serial.println("no");
+  bool response = verifyPassword();
+  
+  if(response) Serial.println("Password Verified");
+  else Serial.println("Password Unverified");
 }
 
+char choice = '0';
 void loop() {
+  Serial.println("1: Register \n2: Verify");
+  
+  while (Serial.available() <= 0) {}
+  choice = Serial.read();
+
+  switch(choice){
+    case '1':
+      if(enrollFinger()) Serial.println("Registered");
+      else Serial.println("Try Again");
+      break;
+
+     case '2':
+      if(fingerSearch()) {
+        Serial.println("Found Match");
+        Serial.print("ID: ");
+        Serial.println(rx_data[rx_data_length-2] + rx_data[rx_data_length-1], HEX);
+      }
+      else Serial.println("Coudln't Find A Match");
+      
+      if(rx_data != NULL) {
+        delete [] rx_data;
+        rx_data = NULL;
+        rx_data_length = 0;
+       }
+      break;
+      
+    default:
+      Serial.println("Invalid Choice");
+  }
+  
 }
