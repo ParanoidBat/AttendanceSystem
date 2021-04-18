@@ -8,9 +8,7 @@
 
 #include <BMA_R30X.h>
 
-SoftwareSerial sensorSerial(2, 3); // rx, tx -> yellow, white
-
-BMA bma(&sensorSerial);
+BMA bma;
 char choice = '0';
 
 void setup() {
