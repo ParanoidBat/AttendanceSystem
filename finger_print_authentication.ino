@@ -367,9 +367,11 @@ uint8_t collectFingerImage(uint8_t rx_response){
   return rx_response;
 }
 
-uint8_t generateCharacterFile(){
+uint8_t generateCharacterFile(uint8_t bufferId[]){
   sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
-  rx_response = receivePacket();  
+  uint8_t rx_response = receivePacket();
+
+  return rx_response;
 }
 
 bool enrollFinger(){
@@ -380,32 +382,23 @@ bool enrollFinger(){
   rx_response = collectFingerImage(rx_response);
     
   uint8_t bufferId[1] = {1};
-
-  generateCharacterFile();
+  generateCharacterFile(bufferId);
 
   delay(2000);
-
-  rx_response = 0x02;
-  while(rx_response == 0x02){
-    Serial.println("Place finger");
-    sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
-    rx_response = receivePacket();
-  }
-
-  Serial.println("Remove finger");
-    
-  bufferId[0] = 2;
-
-  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
-  rx_response = receivePacket();
   
+  rx_response = collectFingerImage(0x02);
+      
+  bufferId[0] = 2;
+  generateCharacterFile(bufferId);
+
+  // comboine both templates to make 1 template
   sendPacket(PID_COMMAND, CMD_REG_MODEL, NULL, 0 );
   rx_response = receivePacket();
   
   if(!rx_response == 0x00) return false;
 
   uint8_t data[3] = {0};
-  uint16_t location = 3;
+  uint16_t location = 3; // refactor to get position dynamically
   
   data[0] = location & 0xFF; // low byte
   data[1] = (location >> 8) & 0xFF; // high byte
@@ -426,18 +419,10 @@ bool fingerSearch(){
   
   uint8_t rx_response = 0x02;
 
-  while(rx_response == 0x02){
-    Serial.println("Place finger");
-    sendPacket(PID_COMMAND, CMD_COLLECT_FINGER_IMAGE, NULL, 0);
-    rx_response = receivePacket();
-  }
-
-  Serial.println("Remove finger");
+  rx_response = collectFingerImage(rx_response);
     
   uint8_t bufferId[1] = {1};
-
-  sendPacket(PID_COMMAND, CMD_GEN_CHAR_FILE, bufferId, 1);
-  rx_response = receivePacket();
+  generateCharacterFile(bufferId);
 
   uint8_t data[5] = {0};
   uint16_t number = 4; // number of templates to search. must be +1 from the last location saved
@@ -447,7 +432,7 @@ bool fingerSearch(){
   data[1] = (number >> 8) & 0xFF;
   data[2] = start & 0xFF;
   data[3] = (start >> 8) & 0xFF;
-  data[4] = 0x01;
+  data[4] = 0x01; // buffer Id
 
   sendPacket(PID_COMMAND, CMD_SEARCH_LIBRARY, data, 5);
   rx_response = receivePacket();
@@ -456,9 +441,6 @@ bool fingerSearch(){
     return true;
   }
   return false;
-  
-//  Serial.print("data: ");
-//  Serial.println(rx_data[0]);
 }
 
 void setup() {
@@ -472,6 +454,7 @@ void setup() {
 }
 
 char choice = '0';
+
 void loop() {
   Serial.println("1: Register \n2: Verify");
   
@@ -490,7 +473,7 @@ void loop() {
         Serial.print("ID: ");
         Serial.println(rx_data[rx_data_length-2] + rx_data[rx_data_length-1], HEX);
       }
-      else Serial.println("Coudln't Find A Match");
+      else Serial.println("Couldn't Find A Match");
       
       if(rx_data != NULL) {
         delete [] rx_data;
@@ -502,5 +485,4 @@ void loop() {
     default:
       Serial.println("Invalid Choice");
   }
-  
 }
