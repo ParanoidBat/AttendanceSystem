@@ -1,10 +1,13 @@
 /*
- This sketch is used for biometric attendance using finger scanner r30x series.
+ This sketch is used for biometric verification using finger scanner r30x series.
  Written by Batman for Meem Enterprise.
  This sketch uses a library: BMA-R30X
  Git of the library:
  https://github.com/ParanoidBat/BMA-R30X
 */
+
+// pin2 = receive
+// pin3 = transfer
 
 #include <BMA_R30X.h>
 
@@ -12,7 +15,7 @@ BMA bma;
 char choice = '0';
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(57600);
   
   bool response = bma.verifyPassword();
   
