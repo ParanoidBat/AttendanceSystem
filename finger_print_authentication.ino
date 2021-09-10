@@ -24,7 +24,7 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("1: Register \n2: Verify");
+  Serial.println("1: Register \n2: Verify \n3: Read Template");
   
   while (Serial.available() <= 0) {}
   choice = Serial.read();
@@ -49,7 +49,11 @@ void loop() {
         bma.rx_data_length = 0;
        }
       break;
-      
+
+    case '3':
+      bma.readTemplate();
+      break;
+    
     default:
       Serial.println("Invalid Choice");
   }
