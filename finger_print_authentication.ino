@@ -51,7 +51,7 @@ void loop() {
       break;
 
     case '3':
-      bma.readTemplate();
+      bma.readTemplateFromLib();
       break;
     
     default:
