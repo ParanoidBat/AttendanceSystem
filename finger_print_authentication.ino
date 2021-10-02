@@ -6,8 +6,7 @@
  https://github.com/ParanoidBat/BMA-R30X
 */
 
-// pin2 = receive
-// pin3 = transfer
+// red LED doesn't work. try with blue, green, white and yellow.
 
 #include <BMA_R30X.h>
 
