@@ -6,8 +6,6 @@
  https://github.com/ParanoidBat/BMA-R30X
 */
 
-// red LED doesn't work. try with blue, green, white and yellow.
-
 #include <BMA_R30X.h>
 
 BMA bma;
@@ -30,17 +28,17 @@ void loop() {
 
   switch(choice){
     case '1':
-      if(bma.enrollFinger()) Serial.println("Registered");
-      else Serial.println("Try Again");
+      if(bma.enrollFinger()) bma.displayOLED("Registered Successfully") ;
+      else bma.displayOLED("Try Again");
       break;
 
      case '2':
       if(bma.fingerSearch()) {
-        Serial.println("Found Match");
+        bma.displayOLED("Found Match");
         Serial.print("ID: ");
         Serial.println(bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1], HEX);
       }
-      else Serial.println("Couldn't Find A Match");
+      else bma.displayOLED("Couldn't Find A Match");
       
       if(bma.rx_data != NULL) {
         delete [] bma.rx_data;
