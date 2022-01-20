@@ -6,28 +6,14 @@
  https://github.com/ParanoidBat/BMA-R30X
 */
 
-/**
- * OLED:
- * SCL -> D1
- * SDA -> D2
- */
-
 #include <BMA_R30X.h>
-#include <ESP8266WiFi.h>
+#include "RTClib.h"
 
-#define CMD_ENROLL 0x64
-#define CMD_VERIFY 0x65
-#define CMD_READ_TEMPLATE_FROM_LIB 0x66
+RTC_DS1307 rtc;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
-#define ACKNOWLEDGE 0x00
-#define FAILURE 0x7d
-#define TCP_BUFFER_LENGTH 2
-
-String ssid = "NodeMcu";
-String password = "11223344";
-
-WiFiServer server(80);
-WiFiClient client;
+//#define GREEN_LED D5
+//#define RED_LED D6
 
 BMA bma;
 char choice = '0';
@@ -35,11 +21,15 @@ char choice = '0';
 void enroll(){
   if(bma.enrollFinger()) {
     bma.displayOLED("Registered Successfully");
-    client.print(ACKNOWLEDGE);
+//    digitalWrite(GREEN_LED, HIGH);
+//    delay(1000);
+//    digitalWrite(GREEN_LED, LOW);
   }
   else {
     bma.displayOLED("Try Again");
-    client.print(FAILURE);
+//    digitalWrite(RED_LED, HIGH);
+//    delay(1000);
+//    digitalWrite(RED_LED, LOW);
   }
 }
 
@@ -48,11 +38,9 @@ void verifyFinger(){
     bma.displayOLED("Found Match");
 //          Serial.print("ID: ");
 //          Serial.println(bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1], HEX);
-    client.print(ACKNOWLEDGE);
   }
   else {
     bma.displayOLED("Couldn't Find A Match");
-    client.print(FAILURE);
   }
   
   if(bma.rx_data != NULL) {
@@ -62,59 +50,42 @@ void verifyFinger(){
   }
 }
 
-void readTcpBuffer(){
-  byte tcp_buffer[TCP_BUFFER_LENGTH] = {0};
-  byte buffer_index = 0;
-  
-  while(buffer_index < TCP_BUFFER_LENGTH){
-    tcp_buffer[buffer_index] = client.read();
-    buffer_index++;
-  }
-
-  if(buffer_index > 0){
-    switch(tcp_buffer[1]){
-      case CMD_ENROLL:
-        enroll();
-        break;
-
-      case CMD_VERIFY:
-        verifyFinger();
-        break;
-
-      case CMD_READ_TEMPLATE_FROM_LIB:
-        bma.readTemplateFromLib();
-        break;
-
-      default:
-        bma.displayOLED("Invalid Choice");
-    }
-  }
-}
-
 void setup() {
-  Serial.begin(57600);
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid, password);
-
-  server.begin();
-  bool response = bma.verifyPassword();
+//  pinMode(GREEN_LED, OUTPUT);
+//  pinMode(RED_LED, OUTPUT);
   
-  if(response) bma.displayOLED("Password Verified");
+  Serial.begin(57600);
+    
+  if(bma.verifyPassword()) bma.displayOLED("Password Verified");
   else bma.displayOLED("Password Unverified");
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+  }
+  if (! rtc.isrunning()) {
+    Serial.println("RTC is NOT running, let's set the time!");
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+//    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
+DateTime now = rtc.now();
+
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(" (");
+    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+    Serial.print(") ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
 }
 
 void loop() {
-  if(!client.connected()){
-    client = server.available();
-  }
-  else {
-    if(client.available() > 0){
-      readTcpBuffer();
-    }
-    else{
-      if(Serial.available() > 0){
-//        client.print(Serial.readString());
-      }
-    }
-  }
 }
