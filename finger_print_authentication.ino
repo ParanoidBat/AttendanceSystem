@@ -19,6 +19,9 @@ char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
 char* server = "https://bma-api-v1.herokuapp.com/user";
 
+WiFiClientSecure httpsClient;
+HTTPClient http;
+
 RTC_DS1307 rtc;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
@@ -65,6 +68,7 @@ void setup() {
     
   if(bma.verifyPassword()) bma.displayOLED("Password Verified");
   else bma.displayOLED("Password Unverified");
+  
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
@@ -76,30 +80,36 @@ void setup() {
 //    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
 
-    WiFi.begin(ssid, password);
-    while(WiFi.status() != WL_CONNECTED){
-      delay(500);
-    }
-    Serial.print("Wifi connected with ip: ");
-    Serial.println(WiFi.localIP());
+  WiFi.begin(ssid, password);
+  while(WiFi.status() != WL_CONNECTED){
+    delay(500);
+  }
+  Serial.print("Wifi connected with ip: ");
+  Serial.println(WiFi.localIP());
 
-DateTime now = rtc.now();
+  DateTime now = rtc.now();
 
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" (");
-    Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  Serial.print(" (");
+//  Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  Serial.print(") ");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println();
+
+  httpsClient.setInsecure();
+  httpsClient.connect(server, 443);
 }
+
+uint16_t lumber = 77;
+char str[29];
 
 void loop() {
     if(Serial.available()){
@@ -107,17 +117,16 @@ void loop() {
 
     if(choice == '1'){
       if(WiFi.status() == WL_CONNECTED){
-        WiFiClientSecure httpsClient;
-        HTTPClient http;
-        httpsClient.setInsecure();
-        httpsClient.connect(server, 443);
-        http.begin(httpsClient, server);
 
+        http.begin(httpsClient, server);
         
         http.addHeader("Content-Type", "application/json");
 
         Serial.println("Sending request");
-        int responseCode = http.POST("{\"name\":\"aese kese\",\"authID\":71}");
+
+        sprintf(str, "{\"name\":\"dummy\",\"authID\":%d}", lumber);
+        
+        int responseCode = http.POST(str);
 
         if(responseCode < 0){
           Serial.printf("[HTTPS] POST... failed, error: %s\n", http.errorToString(responseCode).c_str());
