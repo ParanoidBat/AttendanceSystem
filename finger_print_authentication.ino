@@ -17,40 +17,53 @@
 
 char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
-char* server = "https://bma-api-v1.herokuapp.com/user";
+char* userUri = "https://bma-api-v1.herokuapp.com/user/";
+char* attendanceUri = "https://bma-api-v1.herokuapp.com/attendance/";
+
+uint16_t lumber = 2;
+char str[29];
 
 WiFiClientSecure httpsClient;
 HTTPClient http;
 
 RTC_DS1307 rtc;
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+DateTime now;
 
 BMA bma;
 char choice = '0';
 
-void enroll(){
+int enroll(){
   if(bma.enrollFinger()) {
+    httpsClient.connect(userUri, 443);
+    http.begin(httpsClient, userUri);
+    http.addHeader("Content-Type", "application/json");
+    
+    sprintf(str, "{\"name\":\"dummy\",\"authID\":%d}", lumber);
     bma.displayOLED("Registered Successfully");
-//    digitalWrite(GREEN_LED, HIGH);
-//    delay(1000);
-//    digitalWrite(GREEN_LED, LOW);
   }
   else {
     bma.displayOLED("Try Again");
-//    digitalWrite(RED_LED, HIGH);
-//    delay(1000);
-//    digitalWrite(RED_LED, LOW);
   }
+
+  return http.POST(str);
 }
 
-void verifyFinger(){
+int verifyFinger(){
   if(bma.fingerSearch()) {
-    bma.displayOLED("Found Match");
-//          Serial.print("ID: ");
-//          Serial.println(bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1], HEX);
+    now = rtc.now();
+    httpsClient.connect(attendanceUri, 443);
+    http.begin(httpsClient, attendanceUri);
+    http.addHeader("Content-Type", "application/json");
+    
+    sprintf(str, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":2}", now.year(), now.month(), now.day(), now.twelveHour(), now.minute(), now.second());
+    
+//    bma.displayOLED("Found Match");
+//    Serial.print("Found ID: ");
+//    Serial.println(bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1], HEX);
   }
   else {
-    bma.displayOLED("Couldn't Find A Match");
+//    bma.displayOLED("Couldn't Find A Match");
+    Serial.println("couldnt find");
   }
   
   if(bma.rx_data != NULL) {
@@ -58,6 +71,8 @@ void verifyFinger(){
     bma.rx_data = NULL;
     bma.rx_data_length = 0;
   }
+
+  return http.POST(str);
 }
 
 void setup() {
@@ -87,68 +102,51 @@ void setup() {
   Serial.print("Wifi connected with ip: ");
   Serial.println(WiFi.localIP());
 
-  DateTime now = rtc.now();
-
-  Serial.print(now.year(), DEC);
-  Serial.print('/');
-  Serial.print(now.month(), DEC);
-  Serial.print('/');
-  Serial.print(now.day(), DEC);
-  Serial.print(" (");
-//  Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
-  Serial.print(") ");
-  Serial.print(now.hour(), DEC);
-  Serial.print(':');
-  Serial.print(now.minute(), DEC);
-  Serial.print(':');
-  Serial.print(now.second(), DEC);
-  Serial.println();
-
   httpsClient.setInsecure();
-  httpsClient.connect(server, 443);
 }
 
-uint16_t lumber = 77;
-char str[29];
+int responseCode;
 
 void loop() {
     if(Serial.available()){
     choice = Serial.read();
 
-    if(choice == '1'){
-      if(WiFi.status() == WL_CONNECTED){
+    if(WiFi.status() == WL_CONNECTED){
+      Serial.println("Sending request");
 
-        http.begin(httpsClient, server);
-        
-        http.addHeader("Content-Type", "application/json");
+      switch(choice){
+        case '1':
+          responseCode = enroll();
+          break;
 
-        Serial.println("Sending request");
+        case '2':
+          responseCode = verifyFinger();
+          break;
+          
+        default:
+          break;
+      }
 
-        sprintf(str, "{\"name\":\"dummy\",\"authID\":%d}", lumber);
-        
-        int responseCode = http.POST(str);
-
-        if(responseCode < 0){
-          Serial.printf("[HTTPS] POST... failed, error: %s\n", http.errorToString(responseCode).c_str());
-        }
-        else{
-          Serial.print("HTTPS Response code: ");
-          Serial.println(responseCode);
-          String payload = http.getString();
-          Serial.println(payload);
-          if(payload[2] == 'd'){
-            Serial.println("User Created.");
-          }
-          else{
-            Serial.println("Some Error Occured. Try Again.");
-          }
-        }
-
-        http.end();
+      if(responseCode < 0){
+        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
       }
       else{
-        Serial.println("Wifi disconnected.");
+        Serial.print("HTTPS Response code: ");
+        Serial.println(responseCode);
+        String payload = http.getString();
+        Serial.println(payload);
+        if(payload[2] == 'd'){
+          Serial.println("Successfull.");
+        }
+        else{
+          Serial.println("Some Error Occured. Try Again.");
+        }
       }
+
+      http.end();
+    }
+    else{
+      Serial.println("Wifi disconnected.");
     }
   }
 }
