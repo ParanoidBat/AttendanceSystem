@@ -38,6 +38,7 @@ int responseCode;
 uint32_t start_counter = millis();
 uint8_t attendance_count = 0;
 Attendance attendance;
+String organization = "";
 
 bool writeEEPROMAtSetup(String key, String value){
   if(key == "netwrok") EEPROM.put(NETWORK, value);
@@ -115,7 +116,7 @@ void enroll(){
       http.begin(httpsClient, userUri);
       http.addHeader("Content-Type", "application/json");
       
-      sprintf(body, "{\"name\":\"dummy\",\"authID\":%d}", authID);
+      sprintf(body, "{\"name\":\"dummy\",\"authID\":%d,\"organizationID\":%s}", authID, organization);
       responseCode = http.POST(body);
   
       if(responseCode < 0) Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
@@ -144,10 +145,10 @@ void verifyFinger(){
     now = rtc.now();
 
     if(WiFi.status() == WL_CONNECTED){
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d}",
+      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":%s}",
         now.year(), now.month(), now.day(),
         now.twelveHour(), now.minute(), now.second(),
-        authID);
+        authID, organization);
         
       httpsClient.connect(attendanceUri, 443);
       http.begin(httpsClient, attendanceUri);
@@ -230,6 +231,10 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   httpsClient.setInsecure();
+
+  EEPROM.begin(512);
+  EEPROM.get(ORGANIZATION, organization);
+  EEPROM.end();
 }
 
 void loop() {
@@ -244,6 +249,9 @@ void loop() {
       case '2':
         verifyFinger();
         break;
+
+      case '3':
+        initialSetup();
         
       default:
         break;
@@ -263,10 +271,10 @@ void loop() {
     while(attendance_count > 0){
       EEPROM.get((ATTENDANCE_STORE + (attendance_count -1) * 9), attendance); // implemented as stack
       
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d}",
+      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":%s}",
         attendance.current_year, attendance.current_month, attendance.current_date,
         attendance.current_hour, attendance.current_minute, attendance.current_second,
-        attendance.authID);
+        attendance.authID, organization);
         
       responseCode = http.POST(body);
   
