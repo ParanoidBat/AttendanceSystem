@@ -12,10 +12,10 @@
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
 
+// For communication with Android client
 #define ACKNOWLEDGE 0x00
 #define FAILURE 0x01
 #define HEADER '2'
-#define CMD_ID '3'
 #define CMD_NETWORK '4'
 #define CMD_PASSWORD '5'
 #define CMD_FINISH '9'
@@ -24,7 +24,7 @@ char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
 char* userUri = "https://bma-api-v1.herokuapp.com/user/";
 char* attendanceUri = "https://bma-api-v1.herokuapp.com/attendance/";
-char body[29];
+char body[55];
 
 WiFiClientSecure httpsClient;
 HTTPClient http;
@@ -36,14 +36,29 @@ BMA bma;
 char choice = '0';
 int responseCode;
 uint32_t start_counter = millis();
-uint8_t attendance_count = 0;
+uint8_t attendances = 0;
 Attendance attendance;
-String organization = "";
 
 bool writeEEPROMAtSetup(String key, String value){
-  if(key == "netwrok") EEPROM.put(NETWORK, value);
-  else if(key == "password") EEPROM.put(PASSWORD, value);
-  else if(key == "id") EEPROM.put(ORGANIZATION, value);
+  if(key == "network") {
+    EEPROM.put(NETWORK_LENGTH, (uint8_t)value.length());
+    
+    for (uint8_t i = 2, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
+  }
+  else if(key == "password") {
+    uint8_t ssid_len;
+    EEPROM.get(NETWORK_LENGTH, ssid_len);
+    EEPROM.put(PASSWORD_LENGTH, (uint8_t)value.length());
+    
+    for (uint8_t i = 2 + ssid_len, j = 0; j < value.length(); i++, j++ ) EEPROM.put(i, value[j]);
+  }
+  else if(key == "id") {
+    uint8_t ssid_len, pass_len;
+    EEPROM.get(NETWORK_LENGTH, ssid_len);
+    EEPROM.get(PASSWORD_LENGTH, pass_len);
+
+    for (uint8_t i = 2 + ssid_len + pass_len, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
+  }
   else return false;
   
   EEPROM.commit();
@@ -74,10 +89,11 @@ void initialSetup(){
     
       if(response != "" && response[0] == HEADER){
         String data = response.substring(2);
-       
         if(response[1] == CMD_FINISH){
+          if(writeEEPROMAtSetup("id", data)) client.print(ACKNOWLEDGE);
+          else client.print(FAILURE);
+          
           EEPROM.end();
-          client.print(ACKNOWLEDGE);
           WiFi.softAPdisconnect(true);
           WiFi.mode(WIFI_STA);
           break;
@@ -87,15 +103,11 @@ void initialSetup(){
           case CMD_NETWORK:
             if(writeEEPROMAtSetup("network", data)) client.print(ACKNOWLEDGE);
             else client.print(FAILURE);
+            
             break;
 
           case CMD_PASSWORD:
             if(writeEEPROMAtSetup("password", data)) client.print(ACKNOWLEDGE);
-            else client.print(FAILURE);
-            break;
-
-          case CMD_ID:
-            if(writeEEPROMAtSetup("id", data)) client.print(ACKNOWLEDGE);
             else client.print(FAILURE);
             break;
     
@@ -115,8 +127,8 @@ void enroll(){
       httpsClient.connect(userUri, 443);
       http.begin(httpsClient, userUri);
       http.addHeader("Content-Type", "application/json");
-      
-      sprintf(body, "{\"name\":\"dummy\",\"authID\":%d,\"organizationID\":%s}", authID, organization);
+
+      sprintf(body, "{\"name\":\"dummy\",\"authID\":%d,\"organizationID\":\"%s\"}", authID, bma.organizationID.c_str());
       responseCode = http.POST(body);
   
       if(responseCode < 0) Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
@@ -139,17 +151,18 @@ void enroll(){
   else bma.displayOLED("Try Again.");
 }
 
+// TODO: fix crash after finger is found
 void verifyFinger(){
   if(bma.fingerSearch()) {
     uint16_t authID = bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1];
     now = rtc.now();
 
     if(WiFi.status() == WL_CONNECTED){
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":%s}",
+      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
         now.year(), now.month(), now.day(),
         now.twelveHour(), now.minute(), now.second(),
-        authID, organization);
-        
+        authID, bma.organizationID.c_str());
+
       httpsClient.connect(attendanceUri, 443);
       http.begin(httpsClient, attendanceUri);
       http.addHeader("Content-Type", "application/json");
@@ -183,11 +196,12 @@ void verifyFinger(){
       EEPROM.begin(512);
       uint8_t count = -1;
       
-      EEPROM.get(ATTENDANCE_COUNT, count);
+      EEPROM.get(bma.attendance_count, count);
       if(count > -1){
-        uint16_t location = ATTENDANCE_STORE + count * 9;
+        int location = bma.attendance_store + count * 9;
+        // TODO: check if there is capacity before putting in
         EEPROM.put(location, att);
-        EEPROM.put(ATTENDANCE_COUNT, count+1);
+        EEPROM.put(bma.attendance_count, count+1);
 
         EEPROM.commit();
         EEPROM.end();
@@ -231,10 +245,6 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   httpsClient.setInsecure();
-
-  EEPROM.begin(512);
-  EEPROM.get(ORGANIZATION, organization);
-  EEPROM.end();
 }
 
 void loop() {
@@ -261,20 +271,21 @@ void loop() {
  if(millis() - start_counter > 1800000){ // 30 mins
   start_counter = millis();
   EEPROM.begin(512);
-  EEPROM.get(ATTENDANCE_COUNT, attendance_count);
+  EEPROM.get(bma.attendance_count, attendances);
 
-  if(attendance_count > 0 && WiFi.status() == WL_CONNECTED){
+  if(attendances > 0 && WiFi.status() == WL_CONNECTED){
+    bma.displayOLED("Uploading Data..");
     httpsClient.connect(attendanceUri, 443);
     http.begin(httpsClient, attendanceUri);
     http.addHeader("Content-Type", "application/json");
     
-    while(attendance_count > 0){
-      EEPROM.get((ATTENDANCE_STORE + (attendance_count -1) * 9), attendance); // implemented as stack
+    while(attendances > 0){
+      EEPROM.get((bma.attendance_store + (attendances -1) * 9), attendance); // implemented as stack
       
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":%s}",
+      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
         attendance.current_year, attendance.current_month, attendance.current_date,
         attendance.current_hour, attendance.current_minute, attendance.current_second,
-        attendance.authID, organization);
+        attendance.authID, bma.organizationID.c_str());
         
       responseCode = http.POST(body);
   
@@ -284,11 +295,12 @@ void loop() {
       }
       if(WiFi.status() != WL_CONNECTED) {
         Serial.println("Wifi disconnected");
+        bma.displayOLED("No Network");
         break;
       }
       
-      attendance_count --;
-      EEPROM.put(ATTENDANCE_COUNT, attendance_count);
+      attendances --;
+      EEPROM.put(bma.attendance_count, attendances);
       EEPROM.commit();
     }
   }
