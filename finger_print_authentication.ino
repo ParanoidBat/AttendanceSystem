@@ -58,6 +58,13 @@ bool writeEEPROMAtSetup(String key, String value){
     EEPROM.get(PASSWORD_LENGTH, pass_len);
 
     for (uint8_t i = 2 + ssid_len + pass_len, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
+
+    bma.finger_location = 2 + ssid_len + pass_len + 24;
+    bma.attendance_count = 2 + ssid_len + pass_len + 24 + 2;
+    bma.attendance_store = 2 + ssid_len + pass_len + 24 + 2 + 1;
+    
+    EEPROM.put(bma.finger_location, (uint16_t)0);
+    EEPROM.put(bma.attendance_count, (uint8_t)0);
   }
   else return false;
   
@@ -96,6 +103,13 @@ void initialSetup(){
           EEPROM.end();
           WiFi.softAPdisconnect(true);
           WiFi.mode(WIFI_STA);
+          WiFi.begin(ssid, password);
+          delay(2000);
+          
+          if (WiFi.status() == WL_CONNECTED){
+            Serial.print("Wifi connected with ip: ");
+            Serial.println(WiFi.localIP());
+          }
           break;
         }
         
@@ -237,13 +251,13 @@ void setup() {
   }
 
   WiFi.begin(ssid, password);
-//  while(WiFi.status() != WL_CONNECTED){
-//    delay(500);
-//  }
+  delay(2000);
   
-  Serial.print("Wifi connected with ip: ");
-  Serial.println(WiFi.localIP());
-
+  if(WiFi.status() == WL_CONNECTED){
+    Serial.print("Wifi connected with ip: ");
+    Serial.println(WiFi.localIP());
+  }
+  
   httpsClient.setInsecure();
 }
 
