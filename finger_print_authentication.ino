@@ -15,7 +15,7 @@
 // For communication with Android client
 #define ACKNOWLEDGE 0x00
 #define FAILURE 0x01
-#define HEADER '2'
+#define TCP_HEADER '2'
 #define CMD_NETWORK '4'
 #define CMD_PASSWORD '5'
 #define CMD_FINISH '9'
@@ -24,7 +24,7 @@ char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
 char* userUri = "https://bma-api-v1.herokuapp.com/user/";
 char* attendanceUri = "https://bma-api-v1.herokuapp.com/attendance/";
-char body[55];
+char body[109];
 
 WiFiClientSecure httpsClient;
 HTTPClient http;
@@ -94,18 +94,22 @@ void initialSetup(){
     else if(client.available() > 0){
       String response = client.readStringUntil('/');
     
-      if(response != "" && response[0] == HEADER){
+      if(response != "" && response[0] == TCP_HEADER){
         String data = response.substring(2);
         if(response[1] == CMD_FINISH){
-          if(writeEEPROMAtSetup("id", data)) client.print(ACKNOWLEDGE);
+          if(writeEEPROMAtSetup("id", data)) {
+            client.print(ACKNOWLEDGE);
+            client.flush();
+          }
           else client.print(FAILURE);
           
           EEPROM.end();
+          
           WiFi.softAPdisconnect(true);
           WiFi.mode(WIFI_STA);
           WiFi.begin(ssid, password);
           delay(2000);
-          
+
           if (WiFi.status() == WL_CONNECTED){
             Serial.print("Wifi connected with ip: ");
             Serial.println(WiFi.localIP());
@@ -165,14 +169,15 @@ void enroll(){
   else bma.displayOLED("Try Again.");
 }
 
-// TODO: fix crash after finger is found
 void verifyFinger(){
   if(bma.fingerSearch()) {
     uint16_t authID = bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1];
+    Serial.print("\nauthID: "); Serial.println(authID);
     now = rtc.now();
 
     if(WiFi.status() == WL_CONNECTED){
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
+      Serial.println("sending");
+      sprintf(body, "{\"date\":\"%d-%d-%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
         now.year(), now.month(), now.day(),
         now.twelveHour(), now.minute(), now.second(),
         authID, bma.organizationID.c_str());
@@ -181,7 +186,7 @@ void verifyFinger(){
       http.begin(httpsClient, attendanceUri);
       http.addHeader("Content-Type", "application/json");
       responseCode = http.POST(body);
-  
+
       if(responseCode < 0) Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
       else{
         Serial.print("HTTPS Response code: ");
@@ -191,7 +196,9 @@ void verifyFinger(){
         if(payload[2] == 'd'){
           bma.displayOLED("Successfull");
         }
-        else bma.displayOLED("Try Again.");
+        else {
+          bma.displayOLED("Try Again");
+        }
       }
 
       http.end();
@@ -228,7 +235,6 @@ void verifyFinger(){
   else {
     bma.displayOLED("No Match.");
   }
-  
   if(bma.rx_data != NULL) {
     delete [] bma.rx_data;
     bma.rx_data = NULL;
