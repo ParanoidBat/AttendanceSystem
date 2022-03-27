@@ -44,7 +44,7 @@ BMA bma;
 char choice = '0';
 int responseCode;
 uint32_t start_counter = millis();
-uint8_t attendances = 0;
+uint32_t fileCursorUploaded, fileCursorCurrent;
 byte byteFromSD;
 Attendance attendance;
 
@@ -69,11 +69,6 @@ bool writeEEPROMAtSetup(String key, String value){
     for (uint8_t i = 2 + ssid_len + pass_len, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
 
     bma.finger_location = 2 + ssid_len + pass_len + 24;
-    bma.attendance_count = 2 + ssid_len + pass_len + 24 + 2;
-    bma.attendance_store = 2 + ssid_len + pass_len + 24 + 2 + 1;
-    
-    EEPROM.put(bma.finger_location, (uint16_t)0);
-    EEPROM.put(bma.attendance_count, (uint8_t)0);
   }
   else return false;
   
@@ -213,7 +208,7 @@ void verifyFinger(){
       http.end();
     }
     else{
-        file = SD.open("attendances.txt", FILE_WRITE);
+        file = SD.open("records.txt", FILE_WRITE);
         if (file){
           file.println(0);
           file.println(authID);
@@ -224,10 +219,13 @@ void verifyFinger(){
           sprintf(body, "%d:%d:%d", now.twelveHour(), now.minute(), now.second());
           file.println(body);
 
-          file.close();
+          file.println("e");
+
           bma.displayOLED("Successfull.");
         }
         else bma.displayOLED("Try Again.");
+
+        file.close();
     }
   }
   else {
@@ -239,6 +237,76 @@ void verifyFinger(){
     bma.rx_data = NULL;
     bma.rx_data_length = 0;
   }
+}
+
+void uploadData(){
+  file = SD.open("records.txt", O_RDWR);
+  if (file){
+    httpsClient.connect(attendanceUri, 443);
+    http.begin(httpsClient, attendanceUri);
+    http.addHeader("Content-Type", "application/json");
+
+    while (file.available() && WiFi.status() == WL_CONNECTED){
+      if (file.read() == '0'){
+        fileCursorUploaded = file.position() - 1;
+
+        file.read(); file.read(); // read \r and \n
+
+        attendance.authID = 0;
+        byteFromSD = file.read();
+        while(byteFromSD != '\r'){
+          attendance.authID*10 + (uint16_t)byteFromSD;
+          byteFromSD = file.read();
+        }
+        file.read();
+
+        attendance.date = "";
+        byteFromSD = file.read();
+        while (byteFromSD != '\r'){
+          attendance.date += byteFromSD;
+          byteFromSD = file.read();
+        }
+        file.read();
+
+        attendance.time = "";
+        byteFromSD = file.read();
+        while(byteFromSD != '\r'){
+          attendance.time += byteFromSD;
+          byteFromSD = file.read();
+        }
+        file.read();
+        file.read(); file.read(); file.read(); // e, \r and \n
+        
+        fileCursorCurrent = file.position();
+
+        if (file.seek(fileCursorUploaded)) {
+          file.write('1');
+          file.seek(fileCursorCurrent);
+        }
+
+        bma.displayOLED("Uploading Data..");
+        
+        sprintf(body, "{\"date\":\"%s\",\"timeIn\":\"%s\",\"authID\":%d,\"organizationID\":\"%s\"}",
+          attendance.date.c_str(), attendance.time.c_str(), attendance.authID, bma.organizationID.c_str());
+          
+        responseCode = http.POST(body);
+    
+        if(responseCode < 0) {
+          Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+          break;
+        }
+      }
+      else {
+        while(file.read() != 'e');
+        file.read(); file.read();
+      }
+    }
+    http.end();
+    file.close();
+    if (WiFi.status() == WL_CONNECTED) SD.remove("records.txt");
+  }
+  
+  file.close();
 }
 
 void setup() {  
@@ -266,45 +334,6 @@ void setup() {
   if (! SD.begin(SD_CS_PIN)) Serial.println(F("SD Card initialization failed."));
   
   httpsClient.setInsecure();
-}
-
-void uploadData(){
-//  EEPROM.begin(512);
-//  EEPROM.get(bma.attendance_count, attendances);
-
-  if(attendances > 0 && WiFi.status() == WL_CONNECTED){
-    bma.displayOLED("Uploading Data..");
-    httpsClient.connect(attendanceUri, 443);
-    http.begin(httpsClient, attendanceUri);
-    http.addHeader("Content-Type", "application/json");
-    
-    while(attendances > 0){
-      EEPROM.get((bma.attendance_store + (attendances -1) * 9), attendance); // implemented as stack
-      
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
-        attendance.current_year, attendance.current_month, attendance.current_date,
-        attendance.current_hour, attendance.current_minute, attendance.current_second,
-        attendance.authID, bma.organizationID.c_str());
-        
-      responseCode = http.POST(body);
-  
-      if(responseCode < 0) {
-        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
-        break;
-      }
-      if(WiFi.status() != WL_CONNECTED) {
-        Serial.println("Wifi disconnected");
-        bma.displayOLED("No Network");
-        break;
-      }
-      
-      attendances --;
-      EEPROM.put(bma.attendance_count, attendances);
-      EEPROM.commit();
-    }
-  }
-  http.end();
-  EEPROM.end();
 }
 
 void loop() {
