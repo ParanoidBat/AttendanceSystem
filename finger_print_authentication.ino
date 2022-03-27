@@ -7,10 +7,15 @@
 */
 
 #include <BMA_R30X.h>
+
 #include "RTClib.h"
+#include "SdFat.h"
+
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
+
+using namespace sdfat;
 
 // For communication with Android client
 #define ACKNOWLEDGE 0x00
@@ -19,6 +24,7 @@
 #define CMD_NETWORK '4'
 #define CMD_PASSWORD '5'
 #define CMD_FINISH '9'
+#define SD_CS_PIN D5
 
 char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
@@ -31,12 +37,15 @@ HTTPClient http;
 
 RTC_DS1307 rtc;
 DateTime now;
+SdFat SD;
+File file;
 
 BMA bma;
 char choice = '0';
 int responseCode;
 uint32_t start_counter = millis();
 uint8_t attendances = 0;
+byte byteFromSD;
 Attendance attendance;
 
 bool writeEEPROMAtSetup(String key, String value){
@@ -204,37 +213,27 @@ void verifyFinger(){
       http.end();
     }
     else{
-      Attendance att{
-        authID,
-        now.year(),
-        now.month(),
-        now.day(),
-        now.twelveHour(),
-        now.minute(),
-        now.second()
-      };
+        file = SD.open("attendances.txt", FILE_WRITE);
+        if (file){
+          file.println(0);
+          file.println(authID);
 
-      EEPROM.begin(512);
-      uint8_t count = -1;
-      
-      EEPROM.get(bma.attendance_count, count);
-      if(count > -1){
-        int location = bma.attendance_store + count * 9;
-        // TODO: check if there is capacity before putting in
-        EEPROM.put(location, att);
-        EEPROM.put(bma.attendance_count, count+1);
+          sprintf(body, "%d-%d-%d", now.year(), now.month(), now.day());
+          file.println(body);
 
-        EEPROM.commit();
-        EEPROM.end();
+          sprintf(body, "%d:%d:%d", now.twelveHour(), now.minute(), now.second());
+          file.println(body);
 
-        bma.displayOLED("Successfull.");
-      }
-      else bma.displayOLED("Try Again.");
+          file.close();
+          bma.displayOLED("Successfull.");
+        }
+        else bma.displayOLED("Try Again.");
     }
   }
   else {
     bma.displayOLED("No Match.");
   }
+  
   if(bma.rx_data != NULL) {
     delete [] bma.rx_data;
     bma.rx_data = NULL;
@@ -253,7 +252,7 @@ void setup() {
     Serial.flush();
   }
   if (! rtc.isrunning()) {
-    Serial.println("RTC is NOT running, let's set the time!");
+    Serial.println("RTC is NOT running.");
   }
 
   WiFi.begin(ssid, password);
@@ -263,35 +262,15 @@ void setup() {
     Serial.print("Wifi connected with ip: ");
     Serial.println(WiFi.localIP());
   }
+
+  if (! SD.begin(SD_CS_PIN)) Serial.println(F("SD Card initialization failed."));
   
   httpsClient.setInsecure();
 }
 
-void loop() {
-  if(Serial.available()){
-    choice = Serial.read();
-
-    switch(choice){
-      case '1':
-        enroll();
-        break;
-
-      case '2':
-        verifyFinger();
-        break;
-
-      case '3':
-        initialSetup();
-        
-      default:
-        break;
-    }
- }
-
- if(millis() - start_counter > 1800000){ // 30 mins
-  start_counter = millis();
-  EEPROM.begin(512);
-  EEPROM.get(bma.attendance_count, attendances);
+void uploadData(){
+//  EEPROM.begin(512);
+//  EEPROM.get(bma.attendance_count, attendances);
 
   if(attendances > 0 && WiFi.status() == WL_CONNECTED){
     bma.displayOLED("Uploading Data..");
@@ -326,5 +305,31 @@ void loop() {
   }
   http.end();
   EEPROM.end();
- }
+}
+
+void loop() {
+  if(Serial.available()){
+    choice = Serial.read();
+    
+    switch(choice){
+      case '1':
+        enroll();
+        break;
+      
+      case '2':
+        verifyFinger();
+        break;
+      
+      case '3':
+        initialSetup();
+      
+      default:
+        break;
+    }
+  }
+  
+  if(millis() - start_counter > 1800000){ // 30 mins
+    start_counter = millis();
+    uploadData();
+  }
 }
