@@ -48,24 +48,20 @@ uint8_t attendances = 0;
 Attendance attendance;
 
 void turnOnLED(String led){
-  switch (led){
-    case "red":
-      digitalWrite(LED_GREEN, HIGH);
-      digitalWrite(LED_BLUE, HIGH);
-      digitalWrite(LED_RED, LOW);
-      break;
-
-    case "green":
-      digitalWrite(LED_BLUE, HIGH);
-      digitalWrite(LED_RED, HIGH);
-      digitalWrite(LED_GREEN, LOW);
-      break;
-
-    case "blue":
-      digitalWrite(LED_RED, HIGH);
-      digitalWrite(LED_GREEN, HIGH);
-      digitalWrite(LED_BLUE, LOW);
-      break;
+  if (led == "red"){
+    digitalWrite(LED_GREEN, HIGH);
+    digitalWrite(LED_BLUE, HIGH);
+    digitalWrite(LED_RED, LOW);
+  }
+  else if (led == "green"){
+    digitalWrite(LED_BLUE, HIGH);
+    digitalWrite(LED_RED, HIGH);
+    digitalWrite(LED_GREEN, LOW);
+  }
+  else if (led == "blue"){
+    digitalWrite(LED_RED, HIGH);
+    digitalWrite(LED_GREEN, HIGH);
+    digitalWrite(LED_BLUE, LOW);
   }
 }
 
@@ -327,17 +323,19 @@ void setup() {
   
   httpsClient.setInsecure();
 
-  pinMode(BTN_ENROLL, INPUT_PULLUP);
-  pinMode(BTN_SETUP, INPUT_PULLUP);
-  pinMode(BTN_CHECKIN, INPUT_PULLUP);
-  pinMode(BTN_CHECKOUT, INPUT_PULLUP);
+  pinMode(BTN_ENROLL, INPUT);
+  pinMode(BTN_SETUP, INPUT);
+  pinMode(BTN_CHECKIN, INPUT);
+  pinMode(BTN_CHECKOUT, INPUT);
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
 
   digitalWrite(LED_RED, HIGH);
-  digitalWrite(LED_GREEN, HIGH);
   digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+
+  delay(1500);
 }
 
 void loop() {
@@ -360,7 +358,6 @@ void loop() {
 //        break;
 //    }
 // }
-
   if (digitalRead(BTN_ENROLL) == HIGH) {
     Serial.println("enroll");
     enroll();
