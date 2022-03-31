@@ -20,6 +20,14 @@
 #define CMD_PASSWORD '5'
 #define CMD_FINISH '9'
 
+#define BTN_ENROLL D3
+#define BTN_SETUP D4
+#define BTN_CHECKIN D0
+#define BTN_CHECKOUT D5
+#define LED_RED D6
+#define LED_GREEN D7
+#define LED_BLUE D8
+
 char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
 char* userUri = "https://bma-api-v1.herokuapp.com/user/";
@@ -38,6 +46,28 @@ int responseCode;
 uint32_t start_counter = millis();
 uint8_t attendances = 0;
 Attendance attendance;
+
+void turnOnLED(String led){
+  switch (led){
+    case "red":
+      digitalWrite(LED_GREEN, HIGH);
+      digitalWrite(LED_BLUE, HIGH);
+      digitalWrite(LED_RED, LOW);
+      break;
+
+    case "green":
+      digitalWrite(LED_BLUE, HIGH);
+      digitalWrite(LED_RED, HIGH);
+      digitalWrite(LED_GREEN, LOW);
+      break;
+
+    case "blue":
+      digitalWrite(LED_RED, HIGH);
+      digitalWrite(LED_GREEN, HIGH);
+      digitalWrite(LED_BLUE, LOW);
+      break;
+  }
+}
 
 bool writeEEPROMAtSetup(String key, String value){
   if(key == "network") {
@@ -73,6 +103,8 @@ bool writeEEPROMAtSetup(String key, String value){
 }
 
 void initialSetup(){
+  turnOnLED("blue");
+  
   String ap_ssid = "BMA-Fv1";
   String ap_password = "11223344";
   
@@ -139,6 +171,8 @@ void initialSetup(){
 }
 
 void enroll(){
+  turnOnLED("blue");
+  
   uint16_t authID = bma.enrollFinger();
   if(authID > 0) {
     if(WiFi.status() == WL_CONNECTED){
@@ -149,34 +183,50 @@ void enroll(){
       sprintf(body, "{\"name\":\"dummy\",\"authID\":%d,\"organizationID\":\"%s\"}", authID, bma.organizationID.c_str());
       responseCode = http.POST(body);
   
-      if(responseCode < 0) Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+      if(responseCode < 0) {
+        bma.displayOLED("Try Again.");
+        turnOnLED("red");
+//        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+      }
       else{
         Serial.print("HTTPS Response code: ");
         Serial.println(responseCode);
         String payload = http.getString();
         Serial.println(payload);
         if(payload[2] == 'd'){
-          Serial.println("Successfull.");
+          turnOnLED("green");
           sprintf(body, "Finger ID: %d", authID);
           bma.displayOLED(body);
         }
-        else Serial.println("Some Error Occured. Try Again.");
+        else {
+          bma.displayOLED("Try Again.");
+          turnOnLED("red");
+//          Serial.println("Some Error Occured. Try Again.");
+        }
       }
       http.end();
     }
-    else bma.displayOLED("No Network..");
+    else {
+      turnOnLED("red");
+      bma.displayOLED("No Network..");
+    }
   }
-  else bma.displayOLED("Try Again.");
+  else {
+    turnOnLED("red");
+    bma.displayOLED("Try Again.");
+  }
 }
 
 void verifyFinger(){
+  turnOnLED("blue");
+  
   if(bma.fingerSearch()) {
     uint16_t authID = bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1];
     Serial.print("\nauthID: "); Serial.println(authID);
     now = rtc.now();
 
     if(WiFi.status() == WL_CONNECTED){
-      Serial.println("sending");
+      Serial.println(F("sending"));
       sprintf(body, "{\"date\":\"%d-%d-%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
         now.year(), now.month(), now.day(),
         now.twelveHour(), now.minute(), now.second(),
@@ -187,7 +237,10 @@ void verifyFinger(){
       http.addHeader("Content-Type", "application/json");
       responseCode = http.POST(body);
 
-      if(responseCode < 0) Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+      if(responseCode < 0) {
+        turnOnLED("red");
+        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+      }
       else{
         Serial.print("HTTPS Response code: ");
         Serial.println(responseCode);
@@ -195,8 +248,10 @@ void verifyFinger(){
         Serial.println(payload);
         if(payload[2] == 'd'){
           bma.displayOLED("Successfull");
+          turnOnLED("green");
         }
         else {
+          turnOnLED("red");
           bma.displayOLED("Try Again");
         }
       }
@@ -228,13 +283,19 @@ void verifyFinger(){
         EEPROM.end();
 
         bma.displayOLED("Successfull.");
+        turnOnLED("green");
       }
-      else bma.displayOLED("Try Again.");
+      else {
+        turnOnLED("red");
+        bma.displayOLED("Try Again.");
+      }
     }
   }
   else {
     bma.displayOLED("No Match.");
+    turnOnLED("red");
   }
+  
   if(bma.rx_data != NULL) {
     delete [] bma.rx_data;
     bma.rx_data = NULL;
@@ -265,28 +326,53 @@ void setup() {
   }
   
   httpsClient.setInsecure();
+
+  pinMode(BTN_ENROLL, INPUT_PULLUP);
+  pinMode(BTN_SETUP, INPUT_PULLUP);
+  pinMode(BTN_CHECKIN, INPUT_PULLUP);
+  pinMode(BTN_CHECKOUT, INPUT_PULLUP);
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
+
+  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_BLUE, HIGH);
 }
 
 void loop() {
-  if(Serial.available()){
-    choice = Serial.read();
+//  if(Serial.available()){
+//    choice = Serial.read();
+//
+//    switch(choice){
+//      case '1':
+//        enroll();
+//        break;
+//
+//      case '2':
+//        verifyFinger();
+//        break;
+//
+//      case '3':
+//        initialSetup();
+//        
+//      default:
+//        break;
+//    }
+// }
 
-    switch(choice){
-      case '1':
-        enroll();
-        break;
-
-      case '2':
-        verifyFinger();
-        break;
-
-      case '3':
-        initialSetup();
-        
-      default:
-        break;
-    }
- }
+  if (digitalRead(BTN_ENROLL) == HIGH) {
+    Serial.println("enroll");
+    enroll();
+  }
+  else if (digitalRead(BTN_SETUP) == HIGH) {
+    Serial.println("setup");
+    initialSetup();
+  }
+  else if (digitalRead(BTN_CHECKIN) == HIGH) {
+    Serial.println("verify");
+    verifyFinger();
+  }
 
  if(millis() - start_counter > 1800000){ // 30 mins
   start_counter = millis();
