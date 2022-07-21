@@ -49,19 +49,19 @@ Attendance attendance;
 
 void turnOnLED(String led){
   if (led == "red"){
-    digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_RED, HIGH);
   }
   else if (led == "green"){
-    digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, HIGH);
   }
   else if (led == "blue"){
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, LOW);
+    digitalWrite(LED_RED, LOW);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(LED_BLUE, HIGH);
   }
 }
 
@@ -121,7 +121,7 @@ void initialSetup(){
     }
     else if(client.available() > 0){
       String response = client.readStringUntil('/');
-    
+
       if(response != "" && response[0] == TCP_HEADER){
         String data = response.substring(2);
         if(response[1] == CMD_FINISH){
@@ -182,7 +182,7 @@ void enroll(){
       if(responseCode < 0) {
         bma.displayOLED("Try Again.");
         turnOnLED("red");
-//        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
       }
       else{
         Serial.print("HTTPS Response code: ");
@@ -197,7 +197,6 @@ void enroll(){
         else {
           bma.displayOLED("Try Again.");
           turnOnLED("red");
-//          Serial.println("Some Error Occured. Try Again.");
         }
       }
       http.end();
@@ -331,11 +330,9 @@ void setup() {
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
 
-  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_RED, LOW);
   digitalWrite(LED_BLUE, HIGH);
-  digitalWrite(LED_GREEN, HIGH);
-
-  delay(1500);
+  digitalWrite(LED_GREEN, LOW);
 }
 
 void loop() {
