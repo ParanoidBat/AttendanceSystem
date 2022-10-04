@@ -20,10 +20,10 @@
 #define CMD_PASSWORD '5'
 #define CMD_FINISH '9'
 
-//#define BTN_ENROLL D3
-//#define BTN_SETUP D4
-//#define BTN_CHECKIN D0
-//#define BTN_CHECKOUT D5
+#define BTN_ENROLL D3
+#define BTN_SETUP D4
+#define BTN_CHECKIN D0
+#define BTN_CHECKOUT D5
 #define LED_RED D6
 #define LED_GREEN D7
 #define LED_BLUE D8
@@ -33,6 +33,7 @@ char* password = "02212165";
 char* userUri = "https://bma-api-v1.herokuapp.com/user/";
 char* attendanceUri = "https://bma-api-v1.herokuapp.com/attendance/";
 char body[109];
+byte state = 1; // button state
 
 WiFiClientSecure httpsClient;
 HTTPClient http;
@@ -322,10 +323,10 @@ void setup() {
   
   httpsClient.setInsecure();
 
-//  pinMode(BTN_ENROLL, INPUT);
-//  pinMode(BTN_SETUP, INPUT);
-//  pinMode(BTN_CHECKIN, INPUT);
-//  pinMode(BTN_CHECKOUT, INPUT);
+  pinMode(BTN_ENROLL, INPUT_PULLUP);
+  pinMode(BTN_SETUP, INPUT_PULLUP);
+  pinMode(BTN_CHECKIN, INPUT_PULLUP);
+  pinMode(BTN_CHECKOUT, INPUT_PULLUP);
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
@@ -336,37 +337,38 @@ void setup() {
 }
 
 void loop() {
-  if(Serial.available()){
-    choice = Serial.read();
-
-    switch(choice){
-      case '1':
-        enroll();
-        break;
-
-      case '2':
-        verifyFinger();
-        break;
-
-      case '3':
-        initialSetup();
-        
-      default:
-        break;
+  if (!digitalRead(BTN_ENROLL)) {
+    if(state != 3){
+      state = 3;
+      enroll();
     }
- }
-//  if (digitalRead(BTN_ENROLL) == HIGH) {
-//    Serial.println("enroll");
-//    enroll();
-//  }
-//  else if (digitalRead(BTN_SETUP) == HIGH) {
-//    Serial.println("setup");
-//    initialSetup();
-//  }
-//  else if (digitalRead(BTN_CHECKIN) == HIGH) {
-//    Serial.println("verify");
-//    verifyFinger();
-//  }
+  }
+  else if (state == 3) state = 1;
+  
+  if (!digitalRead(BTN_SETUP)) {
+    if (state != 4){
+      state = 4;
+      initialSetup();      
+    }
+  }
+  else if (state == 4) state = 1;
+  
+  if (!digitalRead(BTN_CHECKIN)) {
+    if (state != 0){
+      state = 0;
+      verifyFinger();      
+    }
+  }
+  else if (state == 0) state = 1;
+
+  if (!digitalRead(BTN_CHECKOUT)) {
+    if (state != 5){
+      state = 5;
+      // Implement checkout function
+      Serial.println("checkout")
+    }
+  }
+  else if (state == 5) state = 1;
 
  if(millis() - start_counter > 1800000){ // 30 mins
   start_counter = millis();
