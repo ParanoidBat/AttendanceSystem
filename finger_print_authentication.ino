@@ -365,7 +365,7 @@ void loop() {
     if (state != 5){
       state = 5;
       // Implement checkout function
-      Serial.println("checkout")
+      Serial.println("checkout");
     }
   }
   else if (state == 5) state = 1;
