@@ -26,11 +26,4 @@ void setup() {
 }
 
 void loop() {
-  DateTime now = rtc.now();
-  
-  Serial.println(now.twelveHour());
-  Serial.println(now.minute());
-  Serial.println(now.second());
-
-  delay(5000);
 }
