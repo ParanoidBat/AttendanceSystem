@@ -30,8 +30,9 @@
 
 char* ssid = "ZONG4G-3D3A";
 char* password = "02212165";
-char* userUri = "https://bma-api-v1.herokuapp.com/user/";
-char* attendanceUri = "https://bma-api-v1.herokuapp.com/attendance/";
+char* userUri = "https://bma-api-v1.herokuapp.com/user/create_from_device";
+char* checkInUri = "https://bma-api-v1.herokuapp.com/attendance/";
+char* checkOutUri = "https://bma-api-v1.herokuapp.com/attendance/checkout";
 char body[109];
 byte state = 1; // button state
 
@@ -177,7 +178,7 @@ void enroll(){
       http.begin(httpsClient, userUri);
       http.addHeader("Content-Type", "application/json");
 
-      sprintf(body, "{\"name\":\"dummy\",\"authID\":%d,\"organizationID\":\"%s\"}", authID, bma.organizationID.c_str());
+      sprintf(body, "{\"name\":\"dummy\",\"finger_id\":%d,\"organization_id\":\"%s\"}", authID, bma.organizationID.c_str());
       responseCode = http.POST(body);
   
       if(responseCode < 0) {
@@ -213,7 +214,7 @@ void enroll(){
   }
 }
 
-void verifyFinger(){
+void check_in(){
   turnOnLED("blue");
   
   if(bma.fingerSearch()) {
@@ -223,13 +224,13 @@ void verifyFinger(){
 
     if(WiFi.status() == WL_CONNECTED){
       Serial.println(F("sending"));
-      sprintf(body, "{\"date\":\"%d-%d-%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
+      sprintf(body, "{\"date\":\"%d-%d-%d\",\"check_in\":\"%d:%d:%d\",\"finger_id\":%d,\"organization_id\":\"%s\"}",
         now.year(), now.month(), now.day(),
         now.twelveHour(), now.minute(), now.second(),
         authID, bma.organizationID.c_str());
 
-      httpsClient.connect(attendanceUri, 443);
-      http.begin(httpsClient, attendanceUri);
+      httpsClient.connect(checkInUri, 443);
+      http.begin(httpsClient, checkInUri);
       http.addHeader("Content-Type", "application/json");
       responseCode = http.POST(body);
 
@@ -299,6 +300,52 @@ void verifyFinger(){
   }
 }
 
+void check_out(){
+  turnOnLED("blue");
+  
+  if(bma.fingerSearch()) {
+    uint16_t authID = bma.rx_data[bma.rx_data_length-2] + bma.rx_data[bma.rx_data_length-1];
+    Serial.print("\nauthID: "); Serial.println(authID);
+    now = rtc.now();
+
+    if(WiFi.status() == WL_CONNECTED){
+      Serial.println(F("sending"));
+      sprintf(body, "{\"date\":\"%d-%d-%d\",\"check_out\":\"%d:%d:%d\",\"finger_id\":%d,\"organization_id\":\"%s\"}",
+        now.year(), now.month(), now.day(),
+        now.twelveHour(), now.minute(), now.second(),
+        authID, bma.organizationID.c_str());
+
+      httpsClient.connect(checkOutUri, 443);
+      http.begin(httpsClient, checkOutUri);
+      http.addHeader("Content-Type", "application/json");
+      responseCode = http.POST(body);
+
+      if(responseCode < 0) {
+        turnOnLED("red");
+        Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+      }
+      else{
+        Serial.print("HTTPS Response code: ");
+        Serial.println(responseCode);
+        String payload = http.getString();
+        Serial.println(payload);
+        if(payload[2] == 'd'){
+          bma.displayOLED("Checked out");
+          turnOnLED("green");
+        }
+        else {
+          turnOnLED("red");
+          bma.displayOLED("Try Again");
+        }
+      }
+
+      http.end();
+    }
+    else{
+      bma.displayOLED("No connection");
+    }
+}
+
 void setup() {  
   Serial.begin(57600);
     
@@ -356,7 +403,7 @@ void loop() {
   if (!digitalRead(BTN_CHECKIN)) {
     if (state != 0){
       state = 0;
-      verifyFinger();      
+      check_in();      
     }
   }
   else if (state == 0) state = 1;
@@ -364,8 +411,7 @@ void loop() {
   if (!digitalRead(BTN_CHECKOUT)) {
     if (state != 5){
       state = 5;
-      // Implement checkout function
-      Serial.println("checkout");
+      check_out();
     }
   }
   else if (state == 5) state = 1;
@@ -377,14 +423,14 @@ void loop() {
 
   if(attendances > 0 && WiFi.status() == WL_CONNECTED){
     bma.displayOLED("Uploading Data..");
-    httpsClient.connect(attendanceUri, 443);
-    http.begin(httpsClient, attendanceUri);
+    httpsClient.connect(checkInUri, 443);
+    http.begin(httpsClient, checkInUri);
     http.addHeader("Content-Type", "application/json");
     
     while(attendances > 0){
       EEPROM.get((bma.attendance_store + (attendances -1) * 9), attendance); // implemented as stack
       
-      sprintf(body, "{\"date\":\"%d/%d/%d\",\"timeIn\":\"%d:%d:%d\",\"authID\":%d,\"organizationID\":\"%s\"}",
+      sprintf(body, "{\"date\":\"%d/%d/%d\",\"check_in\":\"%d:%d:%d\",\"finger_id\":%d,\"organizationI_id\":\"%s\"}",
         attendance.current_year, attendance.current_month, attendance.current_date,
         attendance.current_hour, attendance.current_minute, attendance.current_second,
         attendance.authID, bma.organizationID.c_str());
