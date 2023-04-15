@@ -178,9 +178,10 @@ void enroll(){
       httpsClient.connect(userUri, 443);
       http.begin(httpsClient, userUri);
       http.addHeader("Content-Type", "application/json");
+      http.addHeader("x-access-token", "bma_token_03");
 
-      sprintf(body, "{\"name\":\"dummy\",\"finger_id\":%d,\"organization_id\":\"%s\"}", authID, bma.organizationID.c_str());
       responseCode = http.POST(body);
+      sprintf(body, "{\"name\":\"dummy\",\"finger_id\":%d,\"organization_id\":\"%s\"}", authID, bma.organizationID.c_str());
   
       if(responseCode < 0) {
         bma.displayOLED("Try Again.");
@@ -233,6 +234,8 @@ void check_in(){
       httpsClient.connect(checkInUri, 443);
       http.begin(httpsClient, checkInUri);
       http.addHeader("Content-Type", "application/json");
+      http.addHeader("x-access-token", "bma_token_03");
+      
       responseCode = http.POST(body);
 
       if(responseCode < 0) {
@@ -319,6 +322,8 @@ void check_out(){
       httpsClient.connect(checkOutUri, 443);
       http.begin(httpsClient, checkOutUri);
       http.addHeader("Content-Type", "application/json");
+      http.addHeader("x-access-token", "bma_token_03");
+      
       responseCode = http.POST(body);
 
       if(responseCode < 0) {
