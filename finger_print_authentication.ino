@@ -87,9 +87,10 @@ bool writeEEPROMAtSetup(String key, String value){
 
     for (uint8_t i = 2 + ssid_len + pass_len, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
 
-    bma.finger_location = 2 + ssid_len + pass_len + 24;
-    bma.attendance_count = 2 + ssid_len + pass_len + 24 + 2;
-    bma.attendance_store = 2 + ssid_len + pass_len + 24 + 2 + 1;
+    // 5 bytes for organization id
+    bma.finger_location = 2 + ssid_len + pass_len + 5;
+    bma.attendance_count = 2 + ssid_len + pass_len + 5 + 2;
+    bma.attendance_store = 2 + ssid_len + pass_len + 5 + 2 + 1;
     
     EEPROM.put(bma.finger_location, (uint16_t)0);
     EEPROM.put(bma.attendance_count, (uint8_t)0);
