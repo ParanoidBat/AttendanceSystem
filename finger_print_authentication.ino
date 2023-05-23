@@ -144,6 +144,34 @@ void initialSetup(){
           if (WiFi.status() == WL_CONNECTED){
             Serial.print("Wifi connected with ip: ");
             Serial.println(WiFi.localIP());
+
+            httpsClient.connect("https://bma-api-v1.herokuapp.com/user/org_product/", 443);
+            http.begin(httpsClient, userUri);
+            http.addHeader("Content-Type", "application/json");
+
+            char org_product_body[84];
+            sprintf(org_product_body, "{\"org_id\":\"%s\",\"product_name\":\"FP1\",\"product_mac\":\"%s\"}", bma.organizationID.c_str(), Wifi.macAddress().c_str());
+            responseCode = http.POST(body);
+
+            if(responseCode < 0) {
+            bma.displayOLED("Try Again.");
+            turnOnLED("red");
+            Serial.printf("[HTTPS] failed, error: %s\n", http.errorToString(responseCode).c_str());
+          }
+          else{
+            Serial.print("HTTPS Response code: ");
+            Serial.println(responseCode);
+            String payload = http.getString();
+            Serial.println(payload);
+            if(payload[2] == 'd'){
+              turnOnLED("green");
+            }
+            else {
+              bma.displayOLED("Try Again.");
+              turnOnLED("red");
+            }
+          }
+          http.end();
           }
           break;
         }
@@ -180,9 +208,9 @@ void enroll(){
       http.addHeader("Content-Type", "application/json");
       http.addHeader("x-access-token", "bma_token_03");
 
-      responseCode = http.POST(body);
       sprintf(body, "{\"name\":\"dummy\",\"finger_id\":%d,\"organization_id\":\"%s\"}", authID, bma.organizationID.c_str());
-  
+
+      responseCode = http.POST(body);  
       if(responseCode < 0) {
         bma.displayOLED("Try Again.");
         turnOnLED("red");
