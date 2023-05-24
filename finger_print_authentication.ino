@@ -101,10 +101,41 @@ bool writeEEPROMAtSetup(String key, String value){
   return true;
 }
 
+String generateSSID(uint8_t *mac){
+  String ssid = "";
+  
+  for(int i = 0; i < 6; i++){
+    uint8_t r = mac[i];
+    if(r > 122){
+      uint8_t x = mac[i]%122;
+      
+      if(x > 122) r = 122 - x;
+      else if(x < 48) r = 48 + x;
+      else r = x;
+    }
+    else if(r < 48){
+      if (r == 0) r = 48;
+      else r = 48%r + 48;
+    }
+    ssid += (char)r;
+  }
+
+  return ssid;
+}
+
 void initialSetup(){
   turnOnLED("blue");
+
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+
+  String string_mac = String(mac[5]);
+  for(int i = 4; i >= 0; i--){
+    string_mac += ":";
+    string_mac += mac[i];
+  }
   
-  String ap_ssid = "BMA-Fv1";
+  String ap_ssid = "BMA-" + generateSSID(mac);
   String ap_password = "11223344";
   
   WiFiServer server(80);
@@ -150,7 +181,7 @@ void initialSetup(){
             http.addHeader("Content-Type", "application/json");
 
             char org_product_body[84];
-            sprintf(org_product_body, "{\"org_id\":\"%s\",\"product_name\":\"FP1\",\"product_mac\":\"%s\"}", bma.organizationID.c_str(), Wifi.macAddress().c_str());
+            sprintf(org_product_body, "{\"org_id\":\"%s\",\"product_name\":\"FP1\",\"product_mac\":\"%s\"}", bma.organizationID.c_str(), string_mac.c_str());
             responseCode = http.POST(body);
 
             if(responseCode < 0) {
