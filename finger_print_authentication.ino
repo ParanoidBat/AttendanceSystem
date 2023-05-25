@@ -28,8 +28,6 @@
 #define LED_GREEN D7
 #define LED_BLUE D8
 
-char* ssid = "ZONG4G-3D3A";
-char* password = "02212165";
 char* userUri = "https://bma-api-v1.herokuapp.com/user/create_from_device";
 char* checkInUri = "https://bma-api-v1.herokuapp.com/attendance/";
 char* checkOutUri = "https://bma-api-v1.herokuapp.com/attendance/checkout";
@@ -71,21 +69,21 @@ bool writeEEPROMAtSetup(String key, String value){
   if(key == "network") {
     EEPROM.put(NETWORK_LENGTH, (uint8_t)value.length());
     
-    for (uint8_t i = 2, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
+    for (int i = 2, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
   }
   else if(key == "password") {
     uint8_t ssid_len;
     EEPROM.get(NETWORK_LENGTH, ssid_len);
     EEPROM.put(PASSWORD_LENGTH, (uint8_t)value.length());
     
-    for (uint8_t i = 2 + ssid_len, j = 0; j < value.length(); i++, j++ ) EEPROM.put(i, value[j]);
+    for (int i = 2 + ssid_len, j = 0; j < value.length(); i++, j++ ) EEPROM.put(i, value[j]);
   }
   else if(key == "id") {
     uint8_t ssid_len, pass_len;
     EEPROM.get(NETWORK_LENGTH, ssid_len);
     EEPROM.get(PASSWORD_LENGTH, pass_len);
 
-    for (uint8_t i = 2 + ssid_len + pass_len, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
+    for (int i = 2 + ssid_len + pass_len, j = 0; j < value.length(); i++, j++) EEPROM.put(i, value[j]);
 
     // 5 bytes for organization id
     bma.finger_location = 2 + ssid_len + pass_len + 5;
@@ -179,7 +177,7 @@ void initialSetup(){
           
           WiFi.softAPdisconnect(true);
           WiFi.mode(WIFI_STA);
-          WiFi.begin(ssid, password);
+          WiFi.begin(BMA.ssid, BMA.password);
           delay(2000);
 
           if (WiFi.status() == WL_CONNECTED){
