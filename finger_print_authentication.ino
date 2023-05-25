@@ -123,6 +123,16 @@ String generateSSID(uint8_t *mac){
   return ssid;
 }
 
+String generatePassword(String ssid){
+  String password = "00";
+
+  for(int i = 4; i < ssid.length(); i++){
+    password += ssid[i] + 5;
+  }
+
+  return password;
+}
+
 void initialSetup(){
   turnOnLED("blue");
 
@@ -136,7 +146,7 @@ void initialSetup(){
   }
   
   String ap_ssid = "BMA-" + generateSSID(mac);
-  String ap_password = "11223344";
+  String ap_password = generatePassword(ap_ssid);
   
   WiFiServer server(80);
   WiFiClient client;
