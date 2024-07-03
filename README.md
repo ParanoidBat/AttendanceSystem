@@ -8,6 +8,8 @@ The device will then attempt to register itself on the database. On subsequent s
 
 To enroll, there is also a button (D3 : `BTN_ENROLL`) on the device. After the fingerprint is registered, the device will display a number; which is the **fingerprint ID**, you will need this number to put in the mobile phone interface for registering the new user.  
 
+You will find a code block that runs every 30 mintues; this system stores scanning events if there is no network available. Every 30 minutes, it attempts to flush the stored events to the database, hence, ensuring no data is lost.  
+
 The code should be understandable now that you know the flow of the system. The `RTClib` library; I believe, needs to be downloaded from Arduino's official library archive.  
 The `BMA_R30X` library can be found [here](https://github.com/ParanoidBat/BMA-R30X)  
 The mobile application can be found [here](https://github.com/ParanoidBat/BMA-Client-App)  
