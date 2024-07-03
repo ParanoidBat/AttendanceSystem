@@ -13,5 +13,6 @@ You will find a code block that runs every 30 mintues; this system stores scanni
 The code should be understandable now that you know the flow of the system. The `RTClib` library; I believe, needs to be downloaded from Arduino's official library archive.  
 The `BMA_R30X` library can be found [here](https://github.com/ParanoidBat/BMA-R30X)  
 The mobile application can be found [here](https://github.com/ParanoidBat/BMA-Client-App)  
+The API can be found [here](https://github.com/ParanoidBat/BMA-API)
 
 **Note:** If you have a question, you can open an issue and tag it with `question` or `help wanted` labels. But do make sure that you have actually read the code and have made some degree of understanding before opening a thread.
