@@ -1,0 +1,25 @@
+LABCENTER PROTEUS PICK AND PLACE FILE
+=====================================
+
+Component positions for BMA.pdsprj
+
+Fields: Part ID, Value, Package, Stock Code, Layer, Rotation, X, Y
+Units:  Rotation - degrees, X, Y  - mm
+Notes:  The X, Y value is the centre of package as drawn in ARES.
+        The origin for these values is the Output Origin.
+        The values are a guide only and must be checked manually when
+        setting up automatic insertion equipment.
+
+"OLED","CONN-SIL4","CONN-SIL4","",TOP,0,-68.19,17
+"LED PWR","CONN-SIL3","CONN-SIL3","",TOP,-270,-84,12.54
+"LED GND","CONN-SIL3","CONN-SIL3","",TOP,-270,-89,12.54
+"BTN GND","CONN-SIL4","CONN-SIL4","",TOP,-90,-55,11.81
+"BTN PWR","CONN-SIL4","CONN-SIL4","",TOP,-90,-51,12.19
+"RTC1","DS1307_MODULE","DS1307_MODULE","",TOP,-90,-94.54,-7.05
+"WEMOS1","WEMOS_D1_MINI","WEMOS_D1_MINI","",TOP,0,-44.5,-11.89
+"LOGIC1","LOGIC_LEVEL_SHIFTER","LOGIC_LEVEL_SHIFTER","",TOP,0,-71.25,-21.35
+"FPS","CONN-SIL4","CONN-SIL4","",TOP,-90,-81,-23.19
+"R3","570","RES40","M10K",TOP,-270,-74,10.08
+"R4","570","RES40","M10K",TOP,-270,-77,10.08
+"R5","570","RES40","M10K",TOP,-270,-80,10.08
+"G/V","CONN-SIL2","CONN-SIL2","",BOT,90,-44,14.73
